@@ -2,6 +2,18 @@ import { ClassicListenersCollector } from "@empirica/core/admin/classic";
 export const Empirica = new ClassicListenersCollector();
 
 Empirica.onGameStart(({ game }) => {
+
+  const round0 = game.addRound({
+
+    name: "Round 0 – Video Chat",
+    task: "videochat",
+    });
+  round0.addStage({ name: "Video Chat", duration: 500 });
+
+  game.players.forEach((player) => {
+    player.set("ready", true);
+  });
+
   const round = game.addRound({
     name: "Round 1 - Jelly Beans",
     task: "jellybeans",
