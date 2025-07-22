@@ -1,155 +1,167 @@
-
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import DailyIframe from "@daily-co/daily-js";
 
 export default function VideoChat({ playerId, gameId, roundId }) {
-  const [peer, setPeer] = useState(null);
-  const [connections, setConnections] = useState({});
   const localVideoRef = useRef();
-  const peersRef = useRef({});
-  const myStreamRef = useRef();
+  const callObjectRef = useRef(null);
 
-  const shortId = (id) => id.slice(-6);
-  const basePeerId = `${shortId(gameId)}-${shortId(roundId)}-${shortId(playerId)}`;
-  const maxRetries = 5;
+  const [remoteStreams, setRemoteStreams] = useState({});
+  const [participantNames, setParticipantNames] = useState({});
+  const [isRecording, setIsRecording] = useState(false);
 
-  const handlePeers = useCallback(
-    (e) => {
-      const otherIds = e.detail;
-      otherIds.forEach((id) => {
-        if (!peersRef.current[id] && id !== peer?.id && peer && myStreamRef.current) {
-          console.log(`📞 Calling peer ${id} from ${peer.id}`);
-          const call = peer.call(id, myStreamRef.current);
-          call.on("stream", (remoteStream) => {
-            addRemoteVideo(id, remoteStream);
-          });
-          call.on("error", (err) => {
-            console.error("Call error:", err);
-          });
-          peersRef.current[id] = call;
-        }
-      });
-    },
-    [peer]
-  );
+  const roomUrl = `https://brainstorm-project-25.daily.co/brainstorm-project-1`;
 
   useEffect(() => {
-    window.addEventListener("empirica-peers", handlePeers);
-    return () => {
-      window.removeEventListener("empirica-peers", handlePeers);
-    };
-  }, [handlePeers]);
+    if (!callObjectRef.current) {
+      callObjectRef.current = DailyIframe.createCallObject();
+    }
 
-  useEffect(() => {
-    let Peer; // declared outside for scope
-    let attempt = 0;
+    const callObject = callObjectRef.current;
 
-    const generatePeerId = () =>
-      attempt === 0 ? basePeerId : `${basePeerId}-${attempt}`;
+    callObject.join({ url: roomUrl });
 
-    const connectPeer = () => {
-      const id = generatePeerId();
-      console.log(`🔌 Attempting connection with peer ID: ${id}`);
+    const handleJoined = () => {
+      const localTrack = callObject.participants().local?.tracks?.video?.track;
+      const localUser = callObject.participants().local?.user_name ?? "You";
 
-      const newPeer = new Peer(id, {
-        host: "localhost",
-        port: 9000,
-        path: "/",
-        secure: false,
-      });
+      setParticipantNames((prev) => ({
+        ...prev,
+        [callObject.participants().local?.session_id]: localUser,
+      }));
 
-      newPeer.on("open", () => {
-        console.log("Peer connected with ID:", newPeer.id);
-        setPeer(newPeer);
-      });
-
-      newPeer.on("call", (call) => {
-        console.log("Incoming call from", call.peer);
-        call.answer(myStreamRef.current);
-        call.on("stream", (remoteStream) => {
-          if (!peersRef.current[call.peer]) {
-            addRemoteVideo(call.peer, remoteStream);
-            peersRef.current[call.peer] = call;
-          }
-        });
-        call.on("error", (err) => {
-          console.error("Call error (incoming):", err);
-        });
-      });
-
-      newPeer.on("error", (err) => {
-        if (err.type === "unavailable-id" && attempt < maxRetries) {
-          console.warn(`ID "${id}" is taken. Retrying...`);
-          attempt++;
-          connectPeer(); // Retry with a new ID
-        } else {
-          console.error("Peer error:", err);
-        }
-      });
-    };
-
-    import("peerjs").then(({ default: ImportedPeer }) => {
-      Peer = ImportedPeer;
-
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          myStreamRef.current = stream;
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-          connectPeer(); // safe to use Peer now
-        })
-        .catch((err) => {
-          console.error("getUserMedia error:", err);
-        });
-    });
-
-    return () => {
-      if (peer) peer.destroy();
-      Object.values(peersRef.current).forEach((call) => call.close());
-      if (myStreamRef.current) {
-        myStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (localTrack && localVideoRef.current) {
+        localVideoRef.current.srcObject = new MediaStream([localTrack]);
       }
     };
-  }, []); // only on mount
 
-  function addRemoteVideo(id, stream) {
-    setConnections((prev) => ({
-      ...prev,
-      [id]: stream,
-    }));
-  }
+    const handleParticipantUpdated = (event) => {
+      const { session_id, local, user_name, tracks } = event.participant;
 
-  const RemoteVideo = ({ stream }) => {
+      if (local) return;
+
+      if (user_name) {
+        setParticipantNames((prev) => ({
+          ...prev,
+          [session_id]: user_name,
+        }));
+      }
+
+      const videoTrack = tracks.video?.track;
+      const isPlayable = tracks.video?.state === "playable";
+
+      if (isPlayable && videoTrack) {
+        setRemoteStreams((prev) => {
+          if (prev[session_id]) return prev;
+          return {
+            ...prev,
+            [session_id]: new MediaStream([videoTrack]),
+          };
+        });
+      }
+    };
+
+    const handleParticipantLeft = (event) => {
+      const { session_id } = event.participant;
+      setRemoteStreams((prev) => {
+        const updated = { ...prev };
+        delete updated[session_id];
+        return updated;
+      });
+
+      setParticipantNames((prev) => {
+        const updated = { ...prev };
+        delete updated[session_id];
+        return updated;
+      });
+    };
+
+    callObject.on("joined-meeting", handleJoined);
+    callObject.on("participant-updated", handleParticipantUpdated);
+    callObject.on("participant-left", handleParticipantLeft);
+
+    return () => {
+      callObject.leave();
+      callObject.off("joined-meeting", handleJoined);
+      callObject.off("participant-updated", handleParticipantUpdated);
+      callObject.off("participant-left", handleParticipantLeft);
+    };
+  }, [roomUrl]);
+
+  const startRecording = async () => {
+    try {
+      await callObjectRef.current.startRecording();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      await callObjectRef.current.stopRecording();
+      setIsRecording(false);
+    } catch (err) {
+      console.error("Failed to stop recording:", err);
+    }
+  };
+
+  const RemoteVideo = ({ stream, name }) => {
     const ref = useRef();
     useEffect(() => {
-      if (ref.current) {
-        ref.current.srcObject = stream;
+      if (ref.current && stream) {
+        if (ref.current.srcObject !== stream) {
+          ref.current.srcObject = stream;
+        }
       }
     }, [stream]);
 
     return (
-      <video
-        ref={ref}
-        autoPlay
-        playsInline
-        style={{ width: "500px", border: "2px solid blue" }}
-      />
+      <div style={{ textAlign: "center" }}>
+        <video
+          ref={ref}
+          autoPlay
+          playsInline
+          style={{ width: "500px", border: "2px solid blue" }}
+        />
+        <div style={{ marginTop: "5px", fontWeight: "bold" }}>{name}</div>
+      </div>
     );
   };
 
   return (
-    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-      <video
-        ref={localVideoRef}
-        autoPlay
-        muted
-        playsInline
-        style={{ width: "500px", border: "2px solid black" }}
-      />
-      {Object.entries(connections).map(([id, stream]) => (
-        <RemoteVideo key={id} stream={stream} />
-      ))}
+    <div>
+      {/* Recording Controls */}
+      <div style={{ marginBottom: "20px" }}>
+        {!isRecording ? (
+          <button onClick={startRecording}>Start Recording</button>
+        ) : (
+          <button onClick={stopRecording}>Stop Recording</button>
+        )}
+      </div>
+
+      {/*  Video Streams */}
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ textAlign: "center" }}>
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            style={{ width: "500px", border: "2px solid black" }}
+          />
+          <div style={{ marginTop: "5px", fontWeight: "bold" }}>You</div>
+        </div>
+
+        {Object.entries(remoteStreams).map(([id, stream]) => (
+          <RemoteVideo
+            key={id}
+            stream={stream}
+            name={participantNames[id] || "Participant"}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
+
