@@ -5,6 +5,8 @@ import React from "react";
 import { Game } from "./Game";
 import { ExitSurvey } from "./intro-exit/ExitSurvey";
 import { Introduction } from "./intro-exit/Introduction";
+import { MainInstructions } from "./intro-exit/MainInstructions.jsx";
+import { FocusFlowIntro } from "./focus-flow/FocusFlowIntro.jsx";
 
 export default function App() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -14,11 +16,22 @@ export default function App() {
   const url = `${protocol}//${host}/query`;
 
   function introSteps({ game, player }) {
-    return [Introduction];
+    return [Introduction , MainInstructions , FocusFlowIntro];
   }
 
-  function exitSteps({ game, player }) {
-    return [ExitSurvey];
+   function exitSteps({ game, player }) {
+    const group = player.get("controlGroup");
+    if (group === "aiFirst" || group === "aiHumanFirst") {
+      // aiFirst group → show full ExitSurvey
+      return [ExitSurvey];
+    } else {
+      // Others → just show Thank You message
+      return [() => (
+        <div className="h-full flex items-center justify-center text-xl">
+          Thank you for participating!
+        </div>
+      )];
+    }
   }
 
   return (

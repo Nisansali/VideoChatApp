@@ -1,5 +1,3 @@
-
-
 import {
   useGame,
   usePlayer,
@@ -9,10 +7,13 @@ import {
 
 import { Loading } from "@empirica/core/player/react";
 import React from "react";
-import VideoChat from "./VideoChat"; // 👈 import new stage
 import  { useEffect } from "react";
-import { Survey } from "./examples/Survey.jsx";
-import { ChatModal } from "./examples/ChatModal.jsx";
+import { PostRound1Survey } from "./focus-flow/surveys/PostRound1Survey.jsx";
+import  VideoChat  from "./VideoChat.jsx"
+import { TaskResponseSurvey1 } from "./focus-flow/surveys/TaskResponseSurvey1.jsx";
+import { FreshBiteIntro } from "./fresh-bite/FreshBiteIntro.jsx";
+import { TaskResponseSurvey2 } from "./fresh-bite/TaskResponseSurvey2.jsx";
+import FreshBiteVideo from "./fresh-bite/FreshBiteVideo.jsx";
 
 export function Stage() {
 
@@ -23,14 +24,8 @@ export function Stage() {
 
   console.log(player.id)
    if (!player || !game || !round) {
-    return <div>Loading...</div>; // ⏳ prevent premature render
+    return <div>Loading...</div>; 
   }
-
-  console.log("✅ Ready:", {
-    playerId: player._id,
-    gameId: game._id,
-    roundId: round._id,
-  });
 
   if (player.stage.get("submit")) {
     if (players.length === 1) {
@@ -52,9 +47,15 @@ export function Stage() {
         roundId={round.id}
       />; 
     case "surveyend":
-      return <Survey />;
-    case "modal":
-      return <ChatModal />;
+      return <TaskResponseSurvey1 />;
+    case "midsurvey":
+      return <PostRound1Survey />
+    case "freshbiteintro":
+      return <FreshBiteIntro />;
+    case "videochatfb":
+      return <VideoChat />;
+    case "taskresponsesurvey2":
+      return <TaskResponseSurvey2/>
     default:
       return <div>Unknown task</div>;
   }
