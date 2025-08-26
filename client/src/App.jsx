@@ -20,9 +20,10 @@ export default function App() {
   }
 
    function exitSteps({ game, player }) {
-    const group = player.get("controlGroup");
-    if (group === "aiFirst" || group === "aiHumanFirst") {
-      // aiFirst group → show full ExitSurvey
+    const group = player.get("treatName");
+    console.log("this is group name" , group)
+    if (group === "automated" || group === "augmented") {
+      // automated augmented group → show full ExitSurvey
       return [ExitSurvey];
     } else {
       // Others → just show Thank You message

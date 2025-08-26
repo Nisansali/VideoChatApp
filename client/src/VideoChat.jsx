@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import DailyIframe from "@daily-co/daily-js";
 
-export default function VideoChat({ playerId, gameId, roundId }) {
+export default function VideoChat({ playerId, gameId, roundId , player }) {
   const localVideoRef = useRef();
   const callObjectRef = useRef(null);
 
   const [remoteStreams, setRemoteStreams] = useState({});
   const [participantNames, setParticipantNames] = useState({});
   const [isRecording, setIsRecording] = useState(false);
+
 
   const roomUrl = `https://brainstorm-project-25.daily.co/brainstorm-project-1`;
 

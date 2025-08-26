@@ -2,12 +2,25 @@ factors:
     - name: playerCount
       desc: playerCount determines the number of Players are in a Game.
       values:
-        - value: 1
-        - value: 2
         - value: 3
-        - value: 5
-        - value: 8
-        - value: 13
+    - name: duration
+      desc: duration is the time set for each round in seconds
+      values:
+        - value: 20
+    - name: aiUse
+      desc: 'AI Usage of Treatment '
+      values:
+        - value: "yes"
+        - value: "no"
+    - name: treatmentName
+      values:
+        - value: control
+        - value: augmented
+        - value: automated
+    - name: showTreatment
+      values:
+        - value: "yes"
+        - value: "no"
 treatments:
     - name: Solo
       desc: Single-player Game
@@ -20,3 +33,24 @@ treatments:
     - name: Three Participants
       factors:
         playerCount: 3
+    - name: control
+      factors:
+        aiUse: "no"
+        duration: 20
+        playerCount: 3
+        showTreatment: "yes"
+        treatmentName: control
+    - name: augmented
+      factors:
+        aiUse: "yes"
+        duration: 20
+        playerCount: 3
+        showTreatment: "yes"
+        treatmentName: augmented
+    - name: automated
+      factors:
+        aiUse: "yes"
+        duration: 20
+        playerCount: 3
+        showTreatment: "yes"
+        treatmentName: automated
